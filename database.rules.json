@@ -4,11 +4,13 @@
       ".read": true,
       ".write": true,
       "$entry": {
+        ".write": "newData.exists() || !data.exists()",
         ".validate": "!newData.exists() || newData.hasChildren(['name', 'source', 'order'])",
-        "name":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
-        "source": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
-        "order":  { ".validate": "newData.isNumber()" },
-        "$other": { ".validate": false }
+        "name":    { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+        "source":  { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+        "order":   { ".validate": "newData.isNumber()" },
+        "deleted": { ".validate": "newData.isBoolean()" },
+        "$other":  { ".validate": false }
       }
     },
     "$other": {
