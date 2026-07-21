@@ -278,6 +278,38 @@
     text-align:center;
   }
 
+  .ticket--deleted{ opacity:0.55; }
+  .ticket--deleted .ticket-name{ text-decoration:line-through; }
+
+  .restore{
+    background:none;
+    border:2px solid var(--gray);
+    color:var(--gray);
+    width:32px;
+    height:32px;
+    font-size:15px;
+    line-height:1;
+    padding:0;
+    flex-shrink:0;
+    cursor:pointer;
+  }
+  .restore:hover{ background:var(--gray); color:var(--white); }
+
+  .trash-toggle{
+    background:none;
+    border:none;
+    color:var(--gray);
+    font-family:'Space Grotesk', sans-serif;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    cursor:pointer;
+    padding:18px 2px 4px;
+  }
+  .trash-toggle:hover{ color:var(--black); }
+  #trash{ display:none; }
+  #trash.open{ display:block; }
+
   .status{
     font-family:'Space Grotesk', sans-serif;
     font-size:11px;
@@ -333,6 +365,9 @@
 
   <div id="list"></div>
 
+  <button class="trash-toggle" id="trash-toggle" style="display:none"></button>
+  <div id="trash"></div>
+
   <div class="status" id="status">conectando…</div>
 </div>
 
@@ -361,35 +396,75 @@
   const errorEl = document.getElementById("error");
   const submitBtn = document.getElementById("submit-btn");
 
+  const trashEl = document.getElementById("trash");
+  const trashToggle = document.getElementById("trash-toggle");
+  trashToggle.addEventListener("click", () => {
+    const open = trashEl.classList.toggle("open");
+    trashToggle.textContent = (open ? "▾" : "▸") + trashToggle.textContent.slice(1);
+  });
+
   entriesRef.on("value", (snapshot) => {
     statusEl.textContent = "sincronizado";
     const data = snapshot.val() || {};
-    const entries = Object.entries(data).sort((a, b) => a[1].order - b[1].order);
+    const all = Object.entries(data).sort((a, b) => a[1].order - b[1].order);
+    const active = all.filter(([, e]) => !e.deleted);
+    const deleted = all.filter(([, e]) => e.deleted);
 
-    countEl.textContent = entries.length + (entries.length === 1 ? " baleada" : " baleadas");
-
-    if (entries.length === 0) {
-      listEl.innerHTML = '<div class="empty">Nadie se ha apuntado todavía. Sé el primero.</div>';
-      return;
-    }
+    countEl.textContent = active.length + (active.length === 1 ? " baleada" : " baleadas");
 
     listEl.innerHTML = "";
-    entries.forEach(([key, entry], i) => {
-      const row = document.createElement("div");
-      row.className = "ticket";
-      row.innerHTML = `
-        <span class="num">${String(i + 1).padStart(2, "0")}</span>
-        <div class="ticket-body">
-          <div class="ticket-name"></div>
-          <div class="ticket-source"></div>
-        </div>
-        <button class="del" title="Eliminar">×</button>
-      `;
-      row.querySelector(".ticket-name").textContent = entry.name;
-      row.querySelector(".ticket-source").textContent = entry.source;
-      row.querySelector(".del").addEventListener("click", () => entriesRef.child(key).remove());
-      listEl.appendChild(row);
-    });
+    if (active.length === 0) {
+      listEl.innerHTML = '<div class="empty">Nadie se ha apuntado todavía. Sé el primero.</div>';
+    } else {
+      active.forEach(([key, entry], i) => {
+        const row = document.createElement("div");
+        row.className = "ticket";
+        row.innerHTML = `
+          <span class="num">${String(i + 1).padStart(2, "0")}</span>
+          <div class="ticket-body">
+            <div class="ticket-name"></div>
+            <div class="ticket-source"></div>
+          </div>
+          <button class="del" title="Eliminar">×</button>
+        `;
+        row.querySelector(".ticket-name").textContent = entry.name;
+        row.querySelector(".ticket-source").textContent = entry.source;
+        row.querySelector(".del").addEventListener("click", () => {
+          if (confirm(`¿Eliminar a "${entry.name}" de la lista?`)) {
+            entriesRef.child(key).update({ deleted: true });
+          }
+        });
+        listEl.appendChild(row);
+      });
+    }
+
+    trashEl.innerHTML = "";
+    if (deleted.length === 0) {
+      trashToggle.style.display = "none";
+      trashEl.classList.remove("open");
+    } else {
+      trashToggle.style.display = "block";
+      trashToggle.textContent = (trashEl.classList.contains("open") ? "▾" : "▸") +
+        " Eliminados (" + deleted.length + ")";
+      deleted.forEach(([key, entry]) => {
+        const row = document.createElement("div");
+        row.className = "ticket ticket--deleted";
+        row.innerHTML = `
+          <span class="num">—</span>
+          <div class="ticket-body">
+            <div class="ticket-name"></div>
+            <div class="ticket-source"></div>
+          </div>
+          <button class="restore" title="Restaurar">↺</button>
+        `;
+        row.querySelector(".ticket-name").textContent = entry.name;
+        row.querySelector(".ticket-source").textContent = entry.source;
+        row.querySelector(".restore").addEventListener("click", () => {
+          entriesRef.child(key).update({ deleted: false });
+        });
+        trashEl.appendChild(row);
+      });
+    }
   }, (err) => {
     statusEl.textContent = "error de conexión — revisa tu configuración de Firebase";
   });
